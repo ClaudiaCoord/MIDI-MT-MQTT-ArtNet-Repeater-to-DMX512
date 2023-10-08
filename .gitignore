@@ -32,4 +32,4 @@
 *.app
 
 *.fzz
-/src/config.h
+config.h
