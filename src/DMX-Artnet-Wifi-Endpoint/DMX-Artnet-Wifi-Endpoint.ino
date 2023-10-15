@@ -5,7 +5,7 @@
 	+ MQTT subscriber, support ligts control from network.
 	(c) CC 2022-2023, MIT
 
-	MIDI-MT LIGHT: Repeater gateway -> Art-Net and MQTT to DMX512.
+	MIDI-MT LIGHT: Endpoint device -> Art-Net and MQTT to relay or dimmer control.
 
 	See README.md for more details.
 	NOT FOR CHINESE USE FOR SALES! FREE SOFTWARE!
@@ -16,7 +16,6 @@
 #include <Arduino.h>
 #include <ArtnetWifi.h>
 #include "config.h"
-#include "DMXSerial.h"
 #include "HashMqttConfig.h"
 #include "MQTTPubSubClient.h"
 #include "RequestJsonConfig.h"
@@ -27,7 +26,6 @@
 
   WiFiClient wificlient{};
   ArtnetWifi artnet{};
-  DMXSerial dmx{};
   PubSubClient mqttclient(wificlient);
 
   CONFIG_t config{};
@@ -82,23 +80,28 @@
 
   bool NetworkUp() {
     int i = 0;
-    digitalWrite(errorPin, LOW);
+    ::digitalWrite(errorPin, LOW);
+
+    #if !defined (MODE_ONOF_)
+    ::analogWriteRange(255U);
+    #endif
+
     DEBUG_PRINT_("");
 
     WiFi.begin(STASSID, STAPSK);
     while (WiFi.status() != WL_CONNECTED) {
-      delay(500);
-      digitalWrite(errorPin, HIGH);
+      ::delay(500);
+      ::digitalWrite(errorPin, HIGH);
       if (i++ > 50) return false;
     }
-    digitalWrite(errorPin, LOW);
+    ::digitalWrite(errorPin, LOW);
 
     config.ip = HTTP_HOST_();
     config.http_port = HTTP_PORT_();
     config.mqtt_port = MQTT_PORT_();
 
     IPAddress ip = WiFi.localIP();
-    config.host = String("art-dmx-") + String(ip[2]) + String("-") + String(ip[3]);
+    config.host = String("art-ep-") + String(ip[2]) + String("-") + String(ip[3]);
     config.domain = config.host + String(".local");
     DEBUG_PRINT_(String("Host: ") + config.domain);
 
@@ -119,12 +122,22 @@
             if (array.size()) {
               config.mqttdata.build(array.size());
 
-              uint16_t i = 0U;
+              uint8_t pins[] PINS_OUT();
+              uint16_t i = 0U,
+                       n = 0U, x = static_cast<uint8_t>(std::size(pins));
 
               for (JsonVariant v : array) {
                 String s = v["sub"].as<String>();
                 uint16_t d = v["dmx"].as<int>();
-                if (s && d) config.mqttdata.add(i++, s, d);
+
+                /* DEBUG_PRINT_(String("?: ") + s + String(d) + String(", ") + String(n) + String(", ") + String(pins[n])); */
+                if (s && d) {
+                  uint8_t pin = pins[n++];
+                  config.mqttdata.add(i++, s, d, pin);
+                  ::pinMode(pin, OUTPUT);
+                  ::digitalWrite(pin, LOW);
+                  if (n >= x) break;
+                }
               }
               if (i > 0U) MqttSetup();
             }
@@ -141,14 +154,7 @@
   }
 
   void onDmxFrame(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t* data) {
-    #if defined (ARTNET_FILTER_)
-      config.mqttdata.set(length, data);
-      #if defined (ARTNET_CLEAR_)
-        dmx.clear();
-      #endif
-    #else
-    dmx.write(data, length);
-    #endif
+    config.mqttdata.set(length, data);
   }
 
   void onMqttMessage(char* topic, byte* payload, uint32_t length) {
@@ -159,14 +165,12 @@
 
       MQTTTODMX_t* conf = config.mqttdata.get(topic);
       if (!conf) return;
-      DEBUG_PRINT_(String(topic) + String(", HASH:") + String(config.mqttdata.hash(topic)) + String("/") + String(conf->topic) + String(", DMX:") + String(conf->dmxid) + String(", PIN:") + String((int)conf->pin));
 
       char num[4]{};
       for (size_t i = 0; i < length; i++)
         num[i] = (char)payload[i];
       conf->value = static_cast<uint8_t>(::atoi(num) * 2);
       conf->value = (conf->value == 254) ? 255 : conf->value;
-      dmx.write(conf->dmxid, conf->value);
       DEBUG_PRINT_(String("* Found: ") + String(conf->dmxid) + String(", ") + String(conf->value)); /**/
 
     } catch (...) {}
@@ -174,7 +178,7 @@
 
   void setup() {
     if (ISPRINT_()) Serial.begin(115200);
-    pinMode(errorPin, OUTPUT);
+    ::pinMode(errorPin, OUTPUT);
 
     try {
       while (true) {
@@ -189,7 +193,6 @@
 
       artnet.setArtDmxCallback(onDmxFrame);
       artnet.begin();
-      dmx.init(512);
 
     } catch(String s) {
         DEBUG_PRINT_(s);
@@ -206,14 +209,17 @@
       if (config.mqtt_enable) {
         if (!mqttclient.loop()) MqttConnect();
       }
-      config.mqttdata.update([=](uint16_t dmxid, uint8_t value) {
-        dmx.write(dmxid, value);
+      config.mqttdata.update([=](uint16_t, uint8_t pin, uint8_t value) {
+        #if defined (MODE_ONOF_)
+        ::digitalWrite(pin, (value > 0U) ? HIGH : LOW);
+        #else
+        ::analogWrite(pin, value);
+        #endif
       });
-      dmx.update();
 
     } catch (...) {
-      digitalWrite(errorPin, HIGH);
+      ::digitalWrite(errorPin, HIGH);
       return;
     }
-    digitalWrite(errorPin, LOW);
+    ::digitalWrite(errorPin, LOW);
   }
