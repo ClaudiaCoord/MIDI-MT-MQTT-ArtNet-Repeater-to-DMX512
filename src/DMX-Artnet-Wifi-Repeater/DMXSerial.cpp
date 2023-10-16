@@ -31,7 +31,7 @@
     pinMode(upPin, OUTPUT);
     digitalWrite(upPin, LOW);
   }
-  DMXSerial::~DMXSerial(){
+  DMXSerial::~DMXSerial() {
     end();
   }
 
@@ -126,6 +126,5 @@
           Serial.println("* END");
         }
       #endif
-
     } catch(...) {}
   }

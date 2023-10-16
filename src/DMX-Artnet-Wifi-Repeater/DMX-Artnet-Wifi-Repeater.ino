@@ -152,7 +152,6 @@
   }
 
   void onMqttMessage(char* topic, byte* payload, uint32_t length) {
-
     if ((length == 0U) || (length > 3U) || !topic || !payload) return;
 
     try {
