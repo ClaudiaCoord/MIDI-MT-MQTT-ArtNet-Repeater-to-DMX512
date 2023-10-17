@@ -1,7 +1,8 @@
 # MIDI-MT -> MQTT+ArtNet Repeater to DMX512
 
 MIDI-MT: MQTT + ArtNet Repeater to DMX512 networks. Host lighting controls.  
-see [MIDI-MT software](https://claudiacoord.github.io/MIDI-MT/)  
+See [MIDI-MT software](https://claudiacoord.github.io/MIDI-MT/)  
+More details about diagrams and connection details can be found in the [MIDI-MT wiki](https://github.com/ClaudiaCoord/MIDI-EasyControl-to-Mackie-translator-for-Premiere-Pro/wiki/EN-Repeater-DMX512-ARTNET-MQTT)  
 
 To implement the integration of ArtNet, MQTT and DMX network technologies into a single lighting control system, you can use not only equipment from well-known manufacturers. It is much cheaper to use similar Arduino boards with support for WiFi technology, designed on ESP chipsets. For example ESP8266, ESP32, etc. for these purposes.  
 
