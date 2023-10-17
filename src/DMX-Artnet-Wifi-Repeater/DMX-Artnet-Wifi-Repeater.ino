@@ -15,6 +15,7 @@
 #include <ESP8266mDNS.h>
 #include <Arduino.h>
 #include <ArtnetWifi.h>
+#include <ArduinoOTA.h>
 #include "config.h"
 #include "DMXSerial.h"
 #include "HashMqttConfig.h"
@@ -189,6 +190,13 @@
       }
       digitalWrite(errorPin, LOW);
 
+      ArduinoOTA.setHostname(config.domain.c_str());
+      ArduinoOTA.setPassword((const char *)USING_MQTT_PASSWORD);
+      ArduinoOTA.onStart([]() {
+        mqttclient.publish(config.mqtt_will.c_str(), "0");
+      });
+      ArduinoOTA.begin();
+
       artnet.setArtDmxCallback(onDmxFrame);
       artnet.begin();
       dmx.init(512);
@@ -212,6 +220,8 @@
         dmx.write(dmxid, value);
       });
       dmx.update();
+
+      ArduinoOTA.handle();
 
     } catch (...) {
       digitalWrite(errorPin, HIGH);
