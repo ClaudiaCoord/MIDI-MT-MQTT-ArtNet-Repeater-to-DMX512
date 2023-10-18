@@ -192,7 +192,11 @@
       ArduinoOTA.setHostname(config.domain.c_str());
       ArduinoOTA.setPassword((const char *)USING_MQTT_PASSWORD);
       ArduinoOTA.onStart([]() {
-        mqttclient.publish(config.mqtt_will.c_str(), "0");
+        if (config.mqtt_enable)
+          mqttclient.publish(config.mqtt_will.c_str(), "0");
+      });
+      ArduinoOTA.onError([](ota_error_t) {
+        digitalWrite(errorPin, HIGH);
       });
       ArduinoOTA.begin();
 

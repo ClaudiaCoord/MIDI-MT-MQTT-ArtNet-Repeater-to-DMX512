@@ -191,9 +191,13 @@
       digitalWrite(errorPin, LOW);
 
       ArduinoOTA.setHostname(config.domain.c_str());
-      ArduinoOTA.setPassword((const char *)USING_MQTT_PASSWORD);
+      /* ArduinoOTA.setPassword(static_cast<const char*>(USING_MQTT_PASSWORD)); */
       ArduinoOTA.onStart([]() {
-        mqttclient.publish(config.mqtt_will.c_str(), "0");
+        if (config.mqtt_enable)
+          mqttclient.publish(config.mqtt_will.c_str(), "0");
+      });
+      ArduinoOTA.onError([](ota_error_t) {
+        digitalWrite(errorPin, HIGH);
       });
       ArduinoOTA.begin();
 
@@ -209,23 +213,17 @@
 
   void loop() {
 
-    try {
-
       artnet.read();
 
       if (config.mqtt_enable) {
-        if (!mqttclient.loop()) MqttConnect();
+        if (!mqttclient.loop())
+          digitalWrite(errorPin, MqttConnect() ? LOW : HIGH);
       }
       config.mqttdata.update([=](uint16_t dmxid, uint8_t value) {
         dmx.write(dmxid, value);
       });
+
       dmx.update();
 
       ArduinoOTA.handle();
-
-    } catch (...) {
-      digitalWrite(errorPin, HIGH);
-      return;
-    }
-    digitalWrite(errorPin, LOW);
   }

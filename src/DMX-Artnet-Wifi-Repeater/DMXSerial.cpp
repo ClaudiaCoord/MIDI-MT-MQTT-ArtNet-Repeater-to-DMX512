@@ -109,6 +109,18 @@
         Serial1.begin(250000, SERIAL_8N2);
         digitalWrite(txPin, LOW);
 
+      #elif defined(SEND_DMX_CODE_T3)
+        /* Optimal DMX header for Arlight 407,408 */
+        Serial1.flush();
+        Serial1.begin(83333, SERIAL_8N1);
+        Serial1.write(0);
+        delay(9);
+        Serial1.end();
+
+        Serial1.begin(250000, SERIAL_8N2);
+        Serial1.write(0);
+        delay(3);
+
       #endif
 
       Serial1.write(Data, Size);
